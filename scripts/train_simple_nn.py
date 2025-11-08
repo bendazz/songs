@@ -6,6 +6,8 @@ Prints accuracy on test set per epoch and final accuracy.
 """
 import csv
 import argparse
+import json
+from datetime import datetime, timezone
 import numpy as np
 from sklearn.linear_model import SGDClassifier
 from sklearn.preprocessing import StandardScaler
@@ -98,6 +100,42 @@ def main():
         for i, a in enumerate(history, start=1):
             w.writerow([i, a])
     print('Wrote epoch accuracy to', out_hist)
+
+    # Also write simple model summary (weights, bias, metrics) to JSON for web viz
+    best_acc = float(max(history)) if history else float(final_acc)
+    best_epoch = int(np.argmax(history) + 1) if history else args.epochs
+    try:
+        weight = float(clf.coef_.ravel()[0])
+        bias = float(clf.intercept_.ravel()[0])
+    except Exception:
+        weight = None
+        bias = None
+
+    mean_val = float(scaler.mean_[0]) if hasattr(scaler, 'mean_') and getattr(scaler, 'mean_', None) is not None and len(scaler.mean_) > 0 else 0.0
+    scale_val = float(scaler.scale_[0]) if hasattr(scaler, 'scale_') and getattr(scaler, 'scale_', None) is not None and len(scaler.scale_) > 0 else 1.0
+
+    model_summary = {
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'feature': args.feature,
+        'epochs': args.epochs,
+        'batch_size': args.batch_size,
+        'learning_rate': args.lr,
+        'seed': args.seed,
+        'final_accuracy': float(final_acc),
+        'best_accuracy': best_acc,
+        'best_epoch': best_epoch,
+        'weight': weight,
+        'bias': bias,
+        'scaler': {
+            'mean': mean_val,
+            'scale': scale_val
+        }
+    }
+
+    out_model = 'data/model_simple.json'
+    with open(out_model, 'w', encoding='utf-8') as f:
+        json.dump(model_summary, f, ensure_ascii=False, indent=2)
+    print('Wrote model summary to', out_model)
 
 
 if __name__ == '__main__':

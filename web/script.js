@@ -171,3 +171,83 @@ function renderChart(song, data) {
 }
 
 loadData();
+
+// Load model summary and render simple network visualization (single-feature logistic regression)
+async function loadModelSummary() {
+  try {
+    const res = await fetch('data/model_simple.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const m = await res.json();
+    renderModel(m);
+  } catch (e) {
+    console.warn('Model summary not available:', e);
+  }
+}
+
+function renderModel(m) {
+  const svg = document.getElementById('nn-viz');
+  if (!svg) return;
+  svg.innerHTML = '';
+
+  // Basic geometry
+  const W = 700, H = 280;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const inputX = 100, hiddenX = 350, outputX = 580;
+  const midY = H/2;
+
+  // Single input node (feature), bias node, output node
+  const weight = m.weight;
+  const bias = m.bias;
+
+  // Scales for edge thickness
+  const wMag = typeof weight === 'number' ? Math.min(8, Math.max(1.5, Math.abs(weight))) : 2;
+  const bMag = typeof bias === 'number' ? Math.min(10, Math.max(2, Math.abs(bias))) : 2;
+
+  // Utility to create SVG elements
+  function el(name, attrs) { const n = document.createElementNS('http://www.w3.org/2000/svg', name); Object.entries(attrs||{}).forEach(([k,v])=>n.setAttribute(k,v)); return n; }
+
+  // Input node
+  svg.appendChild(el('circle', { cx: inputX, cy: midY, r: 30, class: 'nn-node' }));
+  svg.appendChild(el('text', { x: inputX, y: midY+5, class: 'nn-label', 'text-anchor':'middle' })).appendChild(document.createTextNode('Feature'));
+
+  // Bias node (draw above)
+  const biasY = midY - 90;
+  svg.appendChild(el('circle', { cx: hiddenX, cy: biasY, r: 26, class: 'nn-node bias' }));
+  svg.appendChild(el('text', { x: hiddenX, y: biasY+4, class: 'nn-label', 'text-anchor':'middle' })).appendChild(document.createTextNode('Bias'));
+
+  // Output node
+  svg.appendChild(el('circle', { cx: outputX, cy: midY, r: 34, class: 'nn-node output' }));
+  svg.appendChild(el('text', { x: outputX, y: midY+5, class: 'nn-label', 'text-anchor':'middle' })).appendChild(document.createTextNode('Output'));
+
+  // Edge feature -> output with weight thickness & color sign
+  const edgeClass = typeof weight === 'number' ? (weight >= 0 ? 'nn-edge pos' : 'nn-edge neg') : 'nn-edge';
+  svg.appendChild(el('line', { x1: inputX+30, y1: midY, x2: outputX-34, y2: midY, class: edgeClass, 'stroke-width': wMag }));
+
+  // Bias edge (bias -> output)
+  svg.appendChild(el('line', { x1: hiddenX+26, y1: biasY, x2: outputX-40, y2: midY-25, class: 'nn-edge bias', 'stroke-width': bMag }));
+
+  // Weight label
+  const wLabelY = midY - 25;
+  svg.appendChild(el('text', { x: (inputX+outputX)/2, y: wLabelY, class: 'nn-label', 'text-anchor':'middle' })).appendChild(document.createTextNode(`w = ${weight !== null ? weight.toFixed(3) : '—'}`));
+  const bLabelY = biasY - 15;
+  svg.appendChild(el('text', { x: hiddenX+80, y: bLabelY, class: 'nn-label', 'text-anchor':'start' })).appendChild(document.createTextNode(`b = ${bias !== null ? bias.toFixed(3) : '—'}`));
+
+  // Activation formula under output
+  const formula = `σ(w·x + b)`;
+  svg.appendChild(el('text', { x: outputX, y: midY+65, class: 'nn-label', 'text-anchor':'middle' })).appendChild(document.createTextNode(formula));
+
+  // Fill stats panel
+  const fmt = n => (typeof n === 'number' ? n.toFixed(4) : '—');
+  const accEl = document.getElementById('nn-acc');
+  const featureEl = document.getElementById('nn-feature');
+  const wEl = document.getElementById('nn-weight');
+  const bEl = document.getElementById('nn-bias');
+  const bestEl = document.getElementById('nn-best');
+  if (accEl) accEl.textContent = fmt(m.final_accuracy);
+  if (bestEl) bestEl.textContent = `${fmt(m.best_accuracy)} (epoch ${m.best_epoch})`;
+  if (featureEl) featureEl.textContent = m.feature || '—';
+  if (wEl) wEl.textContent = weight !== null ? weight.toFixed(4) : '—';
+  if (bEl) bEl.textContent = bias !== null ? bias.toFixed(4) : '—';
+}
+
+loadModelSummary();

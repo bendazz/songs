@@ -34,6 +34,21 @@
     </div>
 
     <div id="meta" class="meta"></div>
+
+    <div class="nn-wrap">
+      <h2>Simple Network (trained offline)</h2>
+      <p class="nn-sub">Single-feature logistic regression learned from the latest run. Circles are nodes, lines are weighted connections. No training happens in your browser.</p>
+      <div class="nn-grid">
+        <svg id="nn-viz" viewBox="0 0 700 220" role="img" aria-label="Simple neural network visualization"></svg>
+        <div class="nn-stats">
+          <div><span class="badge">Feature</span> <span id="nn-feature">—</span></div>
+          <div><span class="badge">Weight</span> <span id="nn-weight">—</span></div>
+          <div><span class="badge">Bias</span> <span id="nn-bias">—</span></div>
+          <div><span class="badge">Final accuracy</span> <span id="nn-acc">—</span></div>
+          <div><span class="badge">Best</span> <span id="nn-best">—</span></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
