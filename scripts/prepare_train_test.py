@@ -29,6 +29,7 @@ OUT_TRAIN_BAL = "data/train_features_balanced.csv"
 
 def parse_args():
     p = argparse.ArgumentParser()
+    p.add_argument("--input", default=INPUT_CSV, help="Path to input matrix CSV (default: data/springsteen_date_song_play_matrix.csv)")
     p.add_argument("--features", default="years_since_release,pct_played_prior,catalog_size_at_play_date",
                    help="Comma-separated list of numeric features to include (must be columns in matrix CSV)")
     p.add_argument("--split-method", choices=["time", "random"], default="time",
@@ -162,8 +163,9 @@ def main():
     args = parse_args()
     random.seed(args.seed)
     features = [f.strip() for f in args.features.split(',') if f.strip()]
-    print("Loading matrix...", INPUT_CSV)
-    rows = read_matrix(INPUT_CSV)
+    input_csv = args.input or INPUT_CSV
+    print("Loading matrix...", input_csv)
+    rows = read_matrix(input_csv)
     print(f"Total rows read: {len(rows)}")
 
     # Optionally filter out rows with missing feature values

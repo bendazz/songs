@@ -21,7 +21,7 @@ async function loadData() {
   fuse = new Fuse(songsIndex, { includeScore: false, threshold: 0.3 });
 
   // Wire both search boxes
-  setupSearch(data, els.search, els.suggestions, (song) => { selectedSong1 = song; renderChart(selectedSong1 || songsIndex[0], data, selectedSong2, songMeta); });
+  setupSearch(data, els.search, els.suggestions, (song) => { selectedSong1 = song; renderChart(selectedSong1 || songsIndex[0], data, selectedSong2, songMeta); setRaceHighlightSong(selectedSong1); });
   setupSearch(data, els.search2, els.suggestions2, (song) => { selectedSong2 = song; renderChart(selectedSong1 || songsIndex[0], data, selectedSong2, songMeta); });
 
   // Preload first song example
@@ -172,158 +172,143 @@ function renderChart(song, data) {
 
 loadData();
 
-// Load model summary and render simple network visualization (single-feature logistic regression)
-async function loadModelSummary() {
-  try {
-    const res = await fetch('data/model_single.json');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const m = await res.json();
-    renderModel(m);
-  } catch (e) {
-    console.warn('Model summary not available:', e);
+// Racing bar chart (top 20 by pct_played_prior over time)
+// Assumes existing 'data/song_pct.json' with structure { song: [ {date: 'YYYY-MM-DD', pct: number}, ... ] }
+// Build frames of date -> sorted songs and animate.
+
+const race = {
+  frames: [],
+  idx: 0,
+  playing: false,
+  timer: null,
+  speed: 300,
+  limit: 20,
+  highlightSong: null
+};
+
+function setRaceHighlightSong(song) {
+  race.highlightSong = song ? decodeURIComponent(song) : null;
+  if (race.frames && race.frames.length) {
+    updateRaceFrame(race.idx, true);
   }
 }
 
-function renderModel(m) {
-  const svg = document.getElementById('nn-viz');
-  if (!svg) return;
-  svg.innerHTML = '';
-
-  // Basic geometry
-  const W = 700, H = 280;
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  const inputX = 100, hiddenX = 350, outputX = 580;
-  const midY = H/2;
-
-  // Single input node (feature), bias node, output node
-  const weight = m.weight;
-  const bias = m.bias;
-
-  // Scales for edge thickness
-  const wMag = typeof weight === 'number' ? Math.min(8, Math.max(1.5, Math.abs(weight))) : 2;
-  const bMag = typeof bias === 'number' ? Math.min(10, Math.max(2, Math.abs(bias))) : 2;
-
-  // Utility to create SVG elements
-  function el(name, attrs) { const n = document.createElementNS('http://www.w3.org/2000/svg', name); Object.entries(attrs||{}).forEach(([k,v])=>n.setAttribute(k,v)); return n; }
-
-  // Input node
-  svg.appendChild(el('circle', { cx: inputX, cy: midY, r: 30, class: 'nn-node' }));
-  svg.appendChild(el('text', { x: inputX, y: midY+5, class: 'nn-label', 'text-anchor':'middle' })).appendChild(document.createTextNode('Feature'));
-
-  // Bias node (draw above)
-  const biasY = midY - 90;
-  svg.appendChild(el('circle', { cx: hiddenX, cy: biasY, r: 26, class: 'nn-node bias' }));
-  svg.appendChild(el('text', { x: hiddenX, y: biasY+4, class: 'nn-label', 'text-anchor':'middle' })).appendChild(document.createTextNode('Bias'));
-
-  // Output node
-  svg.appendChild(el('circle', { cx: outputX, cy: midY, r: 34, class: 'nn-node output' }));
-  svg.appendChild(el('text', { x: outputX, y: midY+5, class: 'nn-label', 'text-anchor':'middle' })).appendChild(document.createTextNode('Output'));
-
-  // Edge feature -> output with weight thickness & color sign
-  const edgeClass = typeof weight === 'number' ? (weight >= 0 ? 'nn-edge pos' : 'nn-edge neg') : 'nn-edge';
-  svg.appendChild(el('line', { x1: inputX+30, y1: midY, x2: outputX-34, y2: midY, class: edgeClass, 'stroke-width': wMag }));
-
-  // Bias edge (bias -> output)
-  svg.appendChild(el('line', { x1: hiddenX+26, y1: biasY, x2: outputX-40, y2: midY-25, class: 'nn-edge bias', 'stroke-width': bMag }));
-
-  // Weight label
-  const wLabelY = midY - 25;
-  svg.appendChild(el('text', { x: (inputX+outputX)/2, y: wLabelY, class: 'nn-label', 'text-anchor':'middle' })).appendChild(document.createTextNode(`w = ${weight !== null ? weight.toFixed(3) : '—'}`));
-  const bLabelY = biasY - 15;
-  svg.appendChild(el('text', { x: hiddenX+80, y: bLabelY, class: 'nn-label', 'text-anchor':'start' })).appendChild(document.createTextNode(`b = ${bias !== null ? bias.toFixed(3) : '—'}`));
-
-  // Activation formula under output
-  const formula = `σ(w·x + b)`;
-  svg.appendChild(el('text', { x: outputX, y: midY+65, class: 'nn-label', 'text-anchor':'middle' })).appendChild(document.createTextNode(formula));
-
-  // Fill stats panel
-  const fmt = n => (typeof n === 'number' ? n.toFixed(4) : '—');
-  const accEl = document.getElementById('nn-acc');
-  const featureEl = document.getElementById('nn-feature');
-  const wEl = document.getElementById('nn-weight');
-  const bEl = document.getElementById('nn-bias');
-  const bestEl = document.getElementById('nn-best');
-  if (accEl) accEl.textContent = fmt(m.final_accuracy);
-  if (bestEl) bestEl.textContent = `${fmt(m.best_accuracy)} (epoch ${m.best_epoch})`;
-  if (featureEl) featureEl.textContent = m.feature || '—';
-  if (wEl) wEl.textContent = weight !== null ? weight.toFixed(4) : '—';
-  if (bEl) bEl.textContent = bias !== null ? bias.toFixed(4) : '—';
-}
-
-loadModelSummary();
-
-// Load multi-feature model and render a two-input visualization
-async function loadModelMulti() {
+async function initRaceChart() {
+  let raw;
   try {
-    const res = await fetch('data/model_multi.json');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const m = await res.json();
-    renderModelMulti(m);
+    const r = await fetch('data/song_pct.json');
+    raw = await r.json();
   } catch (e) {
-    console.warn('Multi-feature model not available:', e);
+    console.warn('race chart data unavailable', e); return;
   }
+  // Transform: gather all dates
+  const dateSet = new Set();
+  Object.values(raw).forEach(arr => arr.forEach(rec => { if (rec.date && typeof rec.pct === 'number') dateSet.add(rec.date); }));
+  const dates = Array.from(dateSet).sort();
+  // Build frames (we could sample, but keep all for now)
+  const frames = [];
+  for (const d of dates) {
+    const entries = [];
+    for (const [song, arr] of Object.entries(raw)) {
+      // find pct for date d (exact match)
+      // use last known pct prior to d if exact not present for smoother continuity
+      let val = null;
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const rec = arr[i];
+        if (rec.date <= d) { val = (typeof rec.pct === 'number') ? rec.pct : null; break; }
+      }
+      if (val !== null) entries.push({ song, pct: val });
+    }
+    entries.sort((a,b) => b.pct - a.pct);
+    frames.push({ date: d, top: entries.slice(0, race.limit) });
+  }
+  race.frames = frames;
+  buildRaceInitial();
 }
 
-function renderModelMulti(m) {
-  const svg = document.getElementById('nn-viz-multi');
-  if (!svg) return;
-  svg.innerHTML = '';
-  const W = 760, H = 320; svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-
-  const inputsX = 120, outputX = 620; const midY = H/2; const gapY = 80;
-  const in1Y = midY - gapY; const in2Y = midY + gapY;
-
-  const features = m.features || [];
-  const weights = m.weights || [];
-  const bias = m.bias;
-
-  // Utilities
-  function el(name, attrs){ const n=document.createElementNS('http://www.w3.org/2000/svg', name); Object.entries(attrs||{}).forEach(([k,v])=>n.setAttribute(k,v)); return n; }
-  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-
-  // Nodes: two inputs, bias, one output
-  svg.appendChild(el('circle', { cx: inputsX, cy: in1Y, r: 28, class:'nn-node' }));
-  svg.appendChild(el('circle', { cx: inputsX, cy: in2Y, r: 28, class:'nn-node' }));
-  const biasX = (inputsX + outputX)/2 - 30, biasY = midY - 110;
-  svg.appendChild(el('circle', { cx: biasX, cy: biasY, r: 24, class:'nn-node bias' }));
-  svg.appendChild(el('circle', { cx: outputX, cy: midY, r: 34, class:'nn-node output' }));
-
-  // Labels for inputs and output
-  const f1 = features[0] || 'x1'; const f2 = features[1] || 'x2';
-  svg.appendChild(el('text', { x: inputsX, y: in1Y+5, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode(f1));
-  svg.appendChild(el('text', { x: inputsX, y: in2Y+5, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode(f2));
-  svg.appendChild(el('text', { x: biasX, y: biasY+4, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode('Bias'));
-  svg.appendChild(el('text', { x: outputX, y: midY+5, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode('Output'));
-
-  // Edges and labels
-  const w1 = typeof weights[0] === 'number' ? weights[0] : null;
-  const w2 = typeof weights[1] === 'number' ? weights[1] : null;
-  const w1W = clamp(w1 ? Math.abs(w1) : 2, 1.5, 8);
-  const w2W = clamp(w2 ? Math.abs(w2) : 2, 1.5, 8);
-  const edgeClass = (w) => (typeof w === 'number' ? (w >= 0 ? 'nn-edge pos' : 'nn-edge neg') : 'nn-edge');
-
-  svg.appendChild(el('line', { x1: inputsX+28, y1: in1Y, x2: outputX-34, y2: midY-12, class: edgeClass(w1), 'stroke-width': w1W }));
-  svg.appendChild(el('line', { x1: inputsX+28, y1: in2Y, x2: outputX-34, y2: midY+12, class: edgeClass(w2), 'stroke-width': w2W }));
-  svg.appendChild(el('line', { x1: biasX+24, y1: biasY, x2: outputX-44, y2: midY-28, class: 'nn-edge bias', 'stroke-width': clamp(Math.abs(bias||2), 2, 10) }));
-
-  // Edge labels
-  svg.appendChild(el('text', { x: (inputsX+outputX)/2 - 40, y: in1Y-10, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode(`w1=${w1!==null?w1.toFixed(3):'—'}`));
-  svg.appendChild(el('text', { x: (inputsX+outputX)/2 - 40, y: in2Y+20, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode(`w2=${w2!==null?w2.toFixed(3):'—'}`));
-  svg.appendChild(el('text', { x: biasX+70, y: biasY-12, class:'nn-label', 'text-anchor':'start'})).appendChild(document.createTextNode(`b=${bias!==null?bias.toFixed(3):'—'}`));
-
-  // Formula under output
-  svg.appendChild(el('text', { x: outputX, y: midY+65, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode('σ(w1·x1 + w2·x2 + b)'));
-
-  // Stats panel
-  const fmt = n => (typeof n === 'number' ? n.toFixed(4) : '—');
-  const featsEl = document.getElementById('nn-features-multi');
-  const wsEl = document.getElementById('nn-weights-multi');
-  const bEl = document.getElementById('nn-bias-multi');
-  const accEl = document.getElementById('nn-acc-multi');
-  if (featsEl) featsEl.textContent = (features && features.length) ? features.join(', ') : '—';
-  if (wsEl) wsEl.textContent = (weights && weights.length) ? weights.map(v=>v.toFixed(4)).join(', ') : '—';
-  if (bEl) bEl.textContent = bias !== null ? bias.toFixed(4) : '—';
-  if (accEl) accEl.textContent = fmt(m.final_accuracy);
+function buildRaceInitial() {
+  const wrap = document.getElementById('race-chart');
+  if (!wrap || !race.frames.length) return;
+  wrap.innerHTML = '';
+  const frame = race.frames[0];
+  frame.top.forEach((entry, i) => {
+    const row = document.createElement('div');
+    row.className = 'race-row';
+    row.style.transform = `translateY(${i * 32}px)`;
+    const rank = document.createElement('div'); rank.className='race-rank'; rank.textContent = (i+1).toString();
+    const label = document.createElement('div'); label.className='race-label'; label.textContent = entry.song;
+    const barWrap = document.createElement('div'); barWrap.className='race-bar-wrap';
+    const bar = document.createElement('div'); bar.className='race-bar';
+    const valSpan = document.createElement('div'); valSpan.className='race-value'; valSpan.textContent = `${entry.pct.toFixed(2)}%`;
+    bar.appendChild(valSpan);
+    barWrap.appendChild(bar);
+    row.appendChild(rank); row.appendChild(label); row.appendChild(barWrap);
+    wrap.appendChild(row);
+  });
+  updateRaceFrame(0, true);
+  wireRaceControls();
 }
 
-loadModelMulti();
+function updateRaceFrame(idx, instant=false) {
+  const frame = race.frames[idx];
+  if (!frame) return;
+  const wrap = document.getElementById('race-chart');
+  const dateEl = document.getElementById('race-date');
+  if (dateEl) dateEl.textContent = frame.date;
+  // Map existing rows by song
+  const existing = Array.from(wrap.querySelectorAll('.race-row'));
+  const bySong = new Map(); existing.forEach(r => { const lab = r.querySelector('.race-label'); if (lab) bySong.set(lab.textContent, r); });
+  // Update / create rows for top songs
+  frame.top.forEach((entry, rank) => {
+    let row = bySong.get(entry.song);
+    if (!row) {
+      row = document.createElement('div'); row.className='race-row';
+      const rankDiv = document.createElement('div'); rankDiv.className='race-rank';
+      const label = document.createElement('div'); label.className='race-label'; label.textContent = entry.song;
+      const barWrap = document.createElement('div'); barWrap.className='race-bar-wrap';
+      const bar = document.createElement('div'); bar.className='race-bar';
+      const valSpan = document.createElement('div'); valSpan.className='race-value'; valSpan.textContent = `${entry.pct.toFixed(2)}%`;
+      bar.appendChild(valSpan); barWrap.appendChild(bar);
+      row.appendChild(rankDiv); row.appendChild(label); row.appendChild(barWrap);
+      wrap.appendChild(row);
+    }
+    const rankDiv = row.querySelector('.race-rank');
+    const valSpan = row.querySelector('.race-value');
+    if (rankDiv) rankDiv.textContent = (rank+1).toString();
+    if (valSpan) valSpan.textContent = `${entry.pct.toFixed(2)}%`;
+    const pctNorm = entry.pct / (frame.top[0].pct || 1); // relative width within wrap
+    const bar = row.querySelector('.race-bar');
+    if (bar) {
+      bar.style.width = `${Math.max(3, pctNorm * 100)}%`;
+    }
+    const y = rank * 32;
+    row.style.transform = `translateY(${y}px)`;
+    if (instant) row.style.transition = 'none'; else row.style.transition = 'transform .6s ease';
+    // toggle highlight class
+    row.classList.toggle('race-highlight', !!race.highlightSong && entry.song === race.highlightSong);
+  });
+  // Remove rows no longer in top
+  existing.forEach(r => { const song = r.querySelector('.race-label')?.textContent; if (song && !frame.top.some(e => e.song === song)) r.remove(); });
+}
+
+function advanceRace() {
+  if (!race.playing) return;
+  race.idx = (race.idx + 1) % race.frames.length;
+  updateRaceFrame(race.idx);
+  race.timer = setTimeout(advanceRace, race.speed);
+}
+
+function wireRaceControls() {
+  const playBtn = document.getElementById('race-play');
+  const pauseBtn = document.getElementById('race-pause');
+  const resetBtn = document.getElementById('race-reset');
+  const speedSel = document.getElementById('race-speed');
+  if (!playBtn || !pauseBtn || !resetBtn || !speedSel) return;
+  playBtn.onclick = () => {
+    if (race.playing) return; race.playing = true; playBtn.disabled = true; pauseBtn.disabled = false; resetBtn.disabled = false; advanceRace(); };
+  pauseBtn.onclick = () => { race.playing = false; playBtn.disabled = false; pauseBtn.disabled = true; clearTimeout(race.timer); };
+  resetBtn.onclick = () => { race.playing = false; clearTimeout(race.timer); race.idx = 0; updateRaceFrame(0, true); playBtn.disabled = false; pauseBtn.disabled = true; resetBtn.disabled = true; };
+  speedSel.onchange = () => { race.speed = parseInt(speedSel.value, 10); };
+}
+
+initRaceChart();
