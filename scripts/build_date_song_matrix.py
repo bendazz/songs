@@ -11,7 +11,7 @@ Inputs:
 
 Output:
 - data/springsteen_date_song_play_matrix.csv
-    Columns: play_date_iso, song_title, album_release_date_iso, played, years_since_release, catalog_size_at_release
+    Columns: play_date_iso, song_title, album_release_date_iso, played, years_since_release, catalog_size_at_release, pct_played_prior
 
 Assumption:
 - A song is considered "eligible" on a date if its release date is on or before that date.
@@ -87,6 +87,30 @@ def main():
     for title, p_dt in plays:
         played_on_date.setdefault(p_dt, set()).add(title)
 
+    # Index dates for quick lookup
+    date_index: Dict[date, int] = {d: i for i, d in enumerate(unique_dates)}
+
+    # Precompute per-song cumulative played counts and eligible-date counts across the timeline
+    # Eligibility is based on release date: dates >= release date
+    songs_by_title: Dict[str, Tuple[date, str]] = {t: (dt, iso) for (t, dt, iso) in songs}
+    cum_play_inclusive: Dict[str, List[int]] = {}
+    cum_eligible_inclusive: Dict[str, List[int]] = {}
+
+    for title, (rel_dt, _) in songs_by_title.items():
+        cum_play = []
+        cum_elig = []
+        running_play = 0
+        running_elig = 0
+        for d in unique_dates:
+            eligible = 1 if d >= rel_dt else 0
+            running_elig += eligible
+            played = 1 if title in played_on_date.get(d, set()) and eligible else 0
+            running_play += played
+            cum_play.append(running_play)
+            cum_elig.append(running_elig)
+        cum_play_inclusive[title] = cum_play
+        cum_eligible_inclusive[title] = cum_elig
+
     # Precompute catalog size at each release date and per song
     from collections import Counter
     date_counts: Dict[date, int] = {}
@@ -112,6 +136,16 @@ def main():
             if rel_dt <= d:
                 played_flag = "1" if title in played_titles else "0"
                 play_iso = d.isoformat()
+                # Past (prior to this date) cumulative counts
+                idx = date_index[d]
+                if idx > 0:
+                    prior_plays = cum_play_inclusive[title][idx - 1]
+                    prior_eligible = cum_eligible_inclusive[title][idx - 1]
+                else:
+                    prior_plays = 0
+                    prior_eligible = 0
+                # Show 0.00 instead of blank when there are no prior eligible dates
+                pct_played_prior = f"{(prior_plays / prior_eligible) * 100:.2f}" if prior_eligible > 0 else "0.00"
                 rows.append({
                     "play_date_iso": play_iso,
                     "song_title": title,
@@ -119,6 +153,7 @@ def main():
                     "played": played_flag,
                     "years_since_release": years_between(rel_iso, play_iso),
                     "catalog_size_at_release": str(catalog_size_by_song.get(title, "")),
+                    "pct_played_prior": pct_played_prior,
                 })
 
     # Write output
@@ -130,6 +165,7 @@ def main():
             "played",
             "years_since_release",
             "catalog_size_at_release",
+            "pct_played_prior",
         ]
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
