@@ -25,11 +25,7 @@ async function loadData() {
   setupSearch(data, els.search2, els.suggestions2, (song) => { selectedSong2 = song; renderChart(selectedSong1 || songsIndex[0], data, selectedSong2, songMeta); });
 
   // Preload first song example
-  if (songsIndex.length) {
-    selectedSong1 = songsIndex[0];
-    els.search.value = selectedSong1;
-    renderChart(selectedSong1, data, null);
-  }
+  // No preload: leave search blank and chart empty until user selects a song
 }
 
 function setupSearch(data, inputEl, suggestionsEl, onSelected) {
@@ -103,6 +99,25 @@ function renderChart(song, data) {
 
   if (song1) datasets.push({ label: song1, data: data1, fill: false, borderColor: '#60a5fa', backgroundColor: '#60a5fa', tension: 0.15, pointRadius: 0, pointHoverRadius: 0, borderWidth: 2 });
   if (song2) datasets.push({ label: song2, data: data2, fill: false, borderColor: '#34d399', backgroundColor: '#34d399', tension: 0.15, pointRadius: 0, pointHoverRadius: 0, borderWidth: 2 });
+
+  // If no songs selected yet, render an empty chart with axes only
+  if (!song1 && !song2) {
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: [], datasets: [] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { grid: { color: 'rgba(148,163,184,.15)' }, ticks: { color: '#cbd5e1', maxTicksLimit: 12 } },
+          y: { grid: { color: 'rgba(148,163,184,.15)' }, ticks: { color: '#cbd5e1', callback: v => `${v}%` }, suggestedMin: 0, suggestedMax: 100 }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+    els.meta.innerHTML = '';
+    return;
+  }
 
   chart = new Chart(ctx, {
     type: 'line',
