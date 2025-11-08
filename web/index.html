@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Springsteen Plays — Viz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Bruce Springsteen — Song Play Percentage Over Time</h1>
+    <p class="sub">Type a song title, select it, then see the % of prior plays by date.</p>
+
+    <div class="search-box">
+      <input id="search" type="text" placeholder="Search for a song… (e.g., Thunder Road)" autocomplete="off" />
+      <ul id="suggestions"></ul>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="chart" height="100"></canvas>
+    </div>
+
+    <div id="meta" class="meta"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -45,6 +45,26 @@ The script is polite to the MusicBrainz API and sleeps briefly between requests;
 - `requirements.txt` — dependencies (`musicbrainzngs`, `python-dateutil`)
 - `data/springsteen_studio_songs.csv` — generated dataset
 
+## Web visualization
+
+An interactive, client-side visualization lets you search a song and see its percentage of prior plays over time.
+
+- Data source: `data/springsteen_date_song_play_matrix.csv`
+- Web data: `web/data/song_pct.json` (generated)
+- App: `web/index.html`, `web/styles.css`, `web/script.js`
+
+Generate the web JSON and serve locally:
+
+```bash
+python3 scripts/build_date_song_matrix.py           # if you need to rebuild the matrix
+python3 scripts/build_web_timeseries.py             # creates web/data/song_pct.json
+python3 -m http.server 8000                         # then visit http://localhost:8000/web/
+```
+
+Notes:
+- The chart shows a blue line for % of dates the song had been played prior to each date. Yellow dots indicate dates the song was actually played.
+- Search is fuzzy (powered by Fuse.js). Use arrow keys + Enter to select a suggestion.
+
 ## Next ideas
 - Optional cross-check against Wikipedia for album release dates and track counts; flag discrepancies.
 - Add writers/credits via MusicBrainz work relationships to identify covers, at the cost of additional API calls.
