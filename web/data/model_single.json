@@ -1,0 +1,27 @@
+{
+  "created_at": "2025-11-08T21:15:17.137027+00:00",
+  "features": [
+    "pct_played_prior"
+  ],
+  "epochs": 30,
+  "batch_size": 1024,
+  "learning_rate": 0.01,
+  "seed": 42,
+  "final_accuracy": 0.9326186583332662,
+  "best_accuracy": 0.9326186583332662,
+  "best_epoch": 1,
+  "weights": [
+    1.75981099648745
+  ],
+  "bias": 0.13648249197863632,
+  "scaler": {
+    "mean": [
+      40.38336194563663
+    ],
+    "scale": [
+      32.1978546906425
+    ]
+  },
+  "feature": "pct_played_prior",
+  "weight": 1.75981099648745
+}

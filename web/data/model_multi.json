@@ -1,0 +1,29 @@
+{
+  "created_at": "2025-11-08T21:18:39.180439+00:00",
+  "features": [
+    "pct_played_prior",
+    "catalog_size_at_play_date"
+  ],
+  "epochs": 30,
+  "batch_size": 1024,
+  "learning_rate": 0.01,
+  "seed": 42,
+  "final_accuracy": 0.93798274792806,
+  "best_accuracy": 0.93798274792806,
+  "best_epoch": 1,
+  "weights": [
+    1.7399923678658087,
+    -0.055561204834390795
+  ],
+  "bias": 0.1370006964220631,
+  "scaler": {
+    "mean": [
+      40.38336194563663,
+      140.76091729344608
+    ],
+    "scale": [
+      32.197854690642544,
+      60.68362810438106
+    ]
+  }
+}

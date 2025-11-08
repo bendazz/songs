@@ -33,3 +33,5 @@ footer {margin-top:3rem; font-size:.7rem; text-transform:uppercase; letter-spaci
 .nn-label {fill:#cbd5e1; font-size:14px; font-family: 'Inter', system-ui, sans-serif;}
 /* ensure the svg has enough space */
 #nn-viz { width: 100%; height: 300px; display:block; }
+/* multi-feature svg height */
+#nn-viz-multi { width: 100%; height: 340px; display:block; }

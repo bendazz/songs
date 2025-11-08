@@ -175,7 +175,7 @@ loadData();
 // Load model summary and render simple network visualization (single-feature logistic regression)
 async function loadModelSummary() {
   try {
-    const res = await fetch('data/model_simple.json');
+    const res = await fetch('data/model_single.json');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const m = await res.json();
     renderModel(m);
@@ -251,3 +251,79 @@ function renderModel(m) {
 }
 
 loadModelSummary();
+
+// Load multi-feature model and render a two-input visualization
+async function loadModelMulti() {
+  try {
+    const res = await fetch('data/model_multi.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const m = await res.json();
+    renderModelMulti(m);
+  } catch (e) {
+    console.warn('Multi-feature model not available:', e);
+  }
+}
+
+function renderModelMulti(m) {
+  const svg = document.getElementById('nn-viz-multi');
+  if (!svg) return;
+  svg.innerHTML = '';
+  const W = 760, H = 320; svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  const inputsX = 120, outputX = 620; const midY = H/2; const gapY = 80;
+  const in1Y = midY - gapY; const in2Y = midY + gapY;
+
+  const features = m.features || [];
+  const weights = m.weights || [];
+  const bias = m.bias;
+
+  // Utilities
+  function el(name, attrs){ const n=document.createElementNS('http://www.w3.org/2000/svg', name); Object.entries(attrs||{}).forEach(([k,v])=>n.setAttribute(k,v)); return n; }
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  // Nodes: two inputs, bias, one output
+  svg.appendChild(el('circle', { cx: inputsX, cy: in1Y, r: 28, class:'nn-node' }));
+  svg.appendChild(el('circle', { cx: inputsX, cy: in2Y, r: 28, class:'nn-node' }));
+  const biasX = (inputsX + outputX)/2 - 30, biasY = midY - 110;
+  svg.appendChild(el('circle', { cx: biasX, cy: biasY, r: 24, class:'nn-node bias' }));
+  svg.appendChild(el('circle', { cx: outputX, cy: midY, r: 34, class:'nn-node output' }));
+
+  // Labels for inputs and output
+  const f1 = features[0] || 'x1'; const f2 = features[1] || 'x2';
+  svg.appendChild(el('text', { x: inputsX, y: in1Y+5, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode(f1));
+  svg.appendChild(el('text', { x: inputsX, y: in2Y+5, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode(f2));
+  svg.appendChild(el('text', { x: biasX, y: biasY+4, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode('Bias'));
+  svg.appendChild(el('text', { x: outputX, y: midY+5, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode('Output'));
+
+  // Edges and labels
+  const w1 = typeof weights[0] === 'number' ? weights[0] : null;
+  const w2 = typeof weights[1] === 'number' ? weights[1] : null;
+  const w1W = clamp(w1 ? Math.abs(w1) : 2, 1.5, 8);
+  const w2W = clamp(w2 ? Math.abs(w2) : 2, 1.5, 8);
+  const edgeClass = (w) => (typeof w === 'number' ? (w >= 0 ? 'nn-edge pos' : 'nn-edge neg') : 'nn-edge');
+
+  svg.appendChild(el('line', { x1: inputsX+28, y1: in1Y, x2: outputX-34, y2: midY-12, class: edgeClass(w1), 'stroke-width': w1W }));
+  svg.appendChild(el('line', { x1: inputsX+28, y1: in2Y, x2: outputX-34, y2: midY+12, class: edgeClass(w2), 'stroke-width': w2W }));
+  svg.appendChild(el('line', { x1: biasX+24, y1: biasY, x2: outputX-44, y2: midY-28, class: 'nn-edge bias', 'stroke-width': clamp(Math.abs(bias||2), 2, 10) }));
+
+  // Edge labels
+  svg.appendChild(el('text', { x: (inputsX+outputX)/2 - 40, y: in1Y-10, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode(`w1=${w1!==null?w1.toFixed(3):'—'}`));
+  svg.appendChild(el('text', { x: (inputsX+outputX)/2 - 40, y: in2Y+20, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode(`w2=${w2!==null?w2.toFixed(3):'—'}`));
+  svg.appendChild(el('text', { x: biasX+70, y: biasY-12, class:'nn-label', 'text-anchor':'start'})).appendChild(document.createTextNode(`b=${bias!==null?bias.toFixed(3):'—'}`));
+
+  // Formula under output
+  svg.appendChild(el('text', { x: outputX, y: midY+65, class:'nn-label', 'text-anchor':'middle'})).appendChild(document.createTextNode('σ(w1·x1 + w2·x2 + b)'));
+
+  // Stats panel
+  const fmt = n => (typeof n === 'number' ? n.toFixed(4) : '—');
+  const featsEl = document.getElementById('nn-features-multi');
+  const wsEl = document.getElementById('nn-weights-multi');
+  const bEl = document.getElementById('nn-bias-multi');
+  const accEl = document.getElementById('nn-acc-multi');
+  if (featsEl) featsEl.textContent = (features && features.length) ? features.join(', ') : '—';
+  if (wsEl) wsEl.textContent = (weights && weights.length) ? weights.map(v=>v.toFixed(4)).join(', ') : '—';
+  if (bEl) bEl.textContent = bias !== null ? bias.toFixed(4) : '—';
+  if (accEl) accEl.textContent = fmt(m.final_accuracy);
+}
+
+loadModelMulti();
