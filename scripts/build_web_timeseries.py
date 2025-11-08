@@ -19,6 +19,7 @@ from typing import Dict, List
 
 MATRIX_CSV = "data/springsteen_date_song_play_matrix.csv"
 OUT_JSON = "web/data/song_pct.json"
+OUT_META = "web/data/song_meta.json"
 
 
 def to_float(s: str) -> float:
@@ -49,6 +50,24 @@ def main():
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(series, f)
     print(f"Wrote {len(series)} songs to {OUT_JSON}")
+
+    # Also build a small metadata map (song -> album_release_date_iso) from the simplified CSV
+    meta: Dict[str, str] = {}
+    SIMPLE = "data/springsteen_songs_simple_unique.csv"
+    if os.path.exists(SIMPLE):
+        with open(SIMPLE, newline="", encoding="utf-8") as sf:
+            r = csv.DictReader(sf)
+            for row in r:
+                title = row.get("song_title") or ""
+                d = row.get("album_release_date_iso") or ""
+                if title:
+                    meta[title] = d
+    else:
+        print(f"Warning: {SIMPLE} not found; song_meta will be empty")
+
+    with open(OUT_META, "w", encoding="utf-8") as mf:
+        json.dump(meta, mf)
+    print(f"Wrote metadata for {len(meta)} songs to {OUT_META}")
 
 
 if __name__ == "__main__":

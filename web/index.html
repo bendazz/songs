@@ -18,6 +18,16 @@
       <input id="search" type="text" placeholder="Search for a song… (e.g., Thunder Road)" autocomplete="off" />
       <ul id="suggestions"></ul>
     </div>
+    <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem;">
+      <div class="search-box" style="flex:1; margin-top:0;">
+        <input id="search2" type="text" placeholder="Compare with another song (optional)" autocomplete="off" />
+        <ul id="suggestions2"></ul>
+      </div>
+      <label style="display:flex;align-items:center;gap:.4rem;color:#cbd5e1;font-size:.9rem;">
+        <input id="peers" type="checkbox" style="transform:scale(1.05)" />
+        <span>Plot peers (same release date for Song A)</span>
+      </label>
+    </div>
 
     <div class="chart-wrap">
       <canvas id="chart"></canvas>

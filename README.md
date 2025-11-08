@@ -63,7 +63,8 @@ python3 -m http.server 8000                         # then visit http://localhos
 
 Notes:
 - The chart shows a blue line for % of dates the song had been played prior to each date (no point markers; hover for values).
-- Search is fuzzy (powered by Fuse.js). Use arrow keys + Enter to select a suggestion.
+ - You can now compare two songs: use the top input for Song A and the second input for Song B; both series will be plotted together.
+ - Search is fuzzy (powered by Fuse.js). Use arrow keys + Enter to select a suggestion.
 
 ## Next ideas
 - Optional cross-check against Wikipedia for album release dates and track counts; flag discrepancies.
