@@ -11,7 +11,7 @@ Inputs:
 
 Output:
 - data/springsteen_date_song_play_matrix.csv
-    Columns: play_date_iso, song_title, album_release_date_iso, played, years_since_release, catalog_size_at_release, pct_played_prior
+    Columns: play_date_iso, song_title, album_release_date_iso, played, years_since_release, catalog_size_at_play_date, pct_played_prior
 
 Assumption:
 - A song is considered "eligible" on a date if its release date is on or before that date.
@@ -111,7 +111,7 @@ def main():
         cum_play_inclusive[title] = cum_play
         cum_eligible_inclusive[title] = cum_elig
 
-    # Precompute catalog size at each release date and per song
+    # Precompute catalog size at each release date and per song (still available if needed)
     from collections import Counter
     date_counts: Dict[date, int] = {}
     for _, rel_dt, _ in songs:
@@ -124,6 +124,19 @@ def main():
     catalog_size_by_song: Dict[str, int] = {}
     for title, rel_dt, _ in songs:
         catalog_size_by_song[title] = cumulative_by_date[rel_dt]
+
+    # Precompute catalog size at each play date = number of songs released on/before that date
+    # Use a two-pointer over songs sorted by release date
+    songs_sorted_by_release = sorted(songs, key=lambda x: x[1])
+    eligible_count_by_date: Dict[date, int] = {}
+    idx = 0
+    count = 0
+    n = len(songs_sorted_by_release)
+    for d_key in unique_dates:
+        while idx < n and songs_sorted_by_release[idx][1] <= d_key:
+            count += 1
+            idx += 1
+        eligible_count_by_date[d_key] = count
 
     # Build rows
     rows: List[Dict[str, str]] = []
@@ -152,7 +165,7 @@ def main():
                     "album_release_date_iso": rel_iso,
                     "played": played_flag,
                     "years_since_release": years_between(rel_iso, play_iso),
-                    "catalog_size_at_release": str(catalog_size_by_song.get(title, "")),
+                    "catalog_size_at_play_date": str(eligible_count_by_date[d]),
                     "pct_played_prior": pct_played_prior,
                 })
 
@@ -164,7 +177,7 @@ def main():
             "album_release_date_iso",
             "played",
             "years_since_release",
-            "catalog_size_at_release",
+            "catalog_size_at_play_date",
             "pct_played_prior",
         ]
         w = csv.DictWriter(f, fieldnames=fieldnames)
