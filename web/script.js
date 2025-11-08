@@ -8,6 +8,7 @@ const els = {
 };
 let selectedSong1 = null;
 let selectedSong2 = null;
+let canvasClickHandler = null;
 
 async function loadData() {
   const res = await fetch('data/song_pct.json');
@@ -95,7 +96,7 @@ function renderChart(song, data) {
           const mapP = new Map(rowsP.map(r => [r.date, r.pct]));
           const d = labels.map(d0 => (mapP.has(d0) ? mapP.get(d0) : null));
           // stronger peer visibility: slightly darker, thicker line
-          datasets.push({ label: p, data: d, fill: false, borderColor: 'rgba(203,213,225,0.35)', backgroundColor: 'rgba(203,213,225,0.35)', tension: 0.15, pointRadius: 0, pointHoverRadius: 0, borderWidth: 1.5 });
+          datasets.push({ label: p, data: d, fill: false, borderColor: 'rgba(203,213,225,0.45)', backgroundColor: 'rgba(203,213,225,0.45)', tension: 0.15, pointRadius: 0, pointHoverRadius: 0, borderWidth: 2 });
         });
     }
   }
@@ -128,6 +129,37 @@ function renderChart(song, data) {
       }
     }
   });
+
+  // remove previous click handler if present to avoid duplicates
+  if (canvasClickHandler && ctx && ctx.canvas) {
+    try { ctx.canvas.removeEventListener('click', canvasClickHandler); } catch (e) {}
+    canvasClickHandler = null;
+  }
+
+  // Click to toggle highlight on a dataset (makes it thicker and brighter)
+  canvasClickHandler = function (e) {
+    const elements = chart.getElementsAtEventForMode(e, 'nearest', { intersect: false }, false);
+    if (!elements || !elements.length) return;
+    const el = elements[0];
+    const di = el.datasetIndex;
+    const ds = chart.data.datasets[di];
+    if (!ds) return;
+    // store originals if not stored
+    if (ds._origBorderWidth === undefined) ds._origBorderWidth = ds.borderWidth || 1;
+    if (ds._origBorderColor === undefined) ds._origBorderColor = ds.borderColor || ds.backgroundColor || '#999';
+    // toggle highlight
+    if (ds._highlighted) {
+      ds.borderWidth = ds._origBorderWidth;
+      ds.borderColor = ds._origBorderColor;
+      ds._highlighted = false;
+    } else {
+      ds.borderWidth = Math.max(3, (ds._origBorderWidth || 1) + 1.5);
+      ds.borderColor = '#f59e0b';
+      ds._highlighted = true;
+    }
+    chart.update('none');
+  };
+  ctx.canvas.addEventListener('click', canvasClickHandler);
 
   // Meta summary for both songs
   const avg1 = (data1.filter(v=>v!==null).length) ? (data1.filter(v=>v!==null).reduce((a,b)=>a+b,0)/data1.filter(v=>v!==null).length).toFixed(2) : '—';
