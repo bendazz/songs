@@ -223,6 +223,13 @@ async function initRaceChart() {
     frames.push({ date: d, top: entries.slice(0, race.limit) });
   }
   race.frames = frames;
+  // init slider bounds
+  const slider = document.getElementById('race-slider');
+  if (slider) {
+    slider.max = Math.max(0, frames.length - 1);
+    slider.value = 0;
+    slider.disabled = frames.length <= 1;
+  }
   buildRaceInitial();
 }
 
@@ -255,6 +262,8 @@ function updateRaceFrame(idx, instant=false) {
   const wrap = document.getElementById('race-chart');
   const dateEl = document.getElementById('race-date');
   if (dateEl) dateEl.textContent = frame.date;
+  const slider = document.getElementById('race-slider');
+  if (slider && parseInt(slider.value,10) !== idx) slider.value = idx;
   // Map existing rows by song
   const existing = Array.from(wrap.querySelectorAll('.race-row'));
   const bySong = new Map(); existing.forEach(r => { const lab = r.querySelector('.race-label'); if (lab) bySong.set(lab.textContent, r); });
@@ -303,12 +312,21 @@ function wireRaceControls() {
   const pauseBtn = document.getElementById('race-pause');
   const resetBtn = document.getElementById('race-reset');
   const speedSel = document.getElementById('race-speed');
+  const slider = document.getElementById('race-slider');
   if (!playBtn || !pauseBtn || !resetBtn || !speedSel) return;
   playBtn.onclick = () => {
     if (race.playing) return; race.playing = true; playBtn.disabled = true; pauseBtn.disabled = false; resetBtn.disabled = false; advanceRace(); };
   pauseBtn.onclick = () => { race.playing = false; playBtn.disabled = false; pauseBtn.disabled = true; clearTimeout(race.timer); };
   resetBtn.onclick = () => { race.playing = false; clearTimeout(race.timer); race.idx = 0; updateRaceFrame(0, true); playBtn.disabled = false; pauseBtn.disabled = true; resetBtn.disabled = true; };
   speedSel.onchange = () => { race.speed = parseInt(speedSel.value, 10); };
+  if (slider) {
+    slider.oninput = (e) => {
+      const v = parseInt(e.target.value, 10) || 0;
+      race.idx = v;
+      updateRaceFrame(race.idx, true);
+    };
+    slider.onchange = slider.oninput;
+  }
 }
 
 initRaceChart();

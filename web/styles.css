@@ -21,6 +21,12 @@ footer {margin-top:3rem; font-size:.7rem; text-transform:uppercase; letter-spaci
 .race-controls .btn {background:#334155; color:#f1f5f9; border:1px solid #475569; padding:.4rem .85rem; border-radius:6px; font-size:.75rem; cursor:pointer; letter-spacing:.5px;}
 .race-controls .btn:disabled {opacity:.45; cursor:not-allowed;}
 .race-controls select {background:#1e2530; color:#f1f5f9; border:1px solid #475569; padding:.3rem .5rem; border-radius:6px; font-size:.75rem;}
+.race-slider {flex:1 1 320px; height:4px; appearance:none; background:#334155; border-radius:999px; outline:none; margin-left:.5rem;}
+.race-slider:disabled {opacity:.4;}
+/* slider thumb */
+.race-slider::-webkit-slider-thumb { appearance:none; width:14px; height:14px; border-radius:50%; background:#60a5fa; border:2px solid #1e293b; cursor:pointer; }
+.race-slider::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:#60a5fa; border:2px solid #1e293b; cursor:pointer; }
+.race-slider::-ms-thumb { width:14px; height:14px; border-radius:50%; background:#60a5fa; border:2px solid #1e293b; cursor:pointer; }
 .race-date {font-weight:600; letter-spacing:.5px;}
 .race-chart {position:relative; width:100%; max-width:1000px; height:640px;}
 .race-row {position:absolute; left:0; height:28px; display:flex; align-items:center; font-size:.75rem; font-weight:600; color:#f1f5f9; transition:transform .6s ease; width:100%;}
