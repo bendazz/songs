@@ -11,6 +11,8 @@ let selectedSong2 = null;
 let canvasClickHandler = null;
 
 async function loadData() {
+  const loadingEl = document.getElementById('loading');
+  if (loadingEl) loadingEl.style.display = 'flex';
   const res = await fetch('data/song_pct.json');
   const data = await res.json();
   // load metadata mapping song -> album_release_date_iso
@@ -26,6 +28,9 @@ async function loadData() {
 
   // Preload first song example
   // No preload: leave search blank and chart empty until user selects a song
+
+  // Hide loader once data and UI are wired
+  if (loadingEl) loadingEl.style.display = 'none';
 }
 
 function setupSearch(data, inputEl, suggestionsEl, onSelected) {
