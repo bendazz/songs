@@ -36,7 +36,8 @@ function setupSearch(data) {
   els.suggestions.addEventListener('click', (e) => {
     const item = e.target.closest('li');
     if (!item) return;
-    const song = item.dataset.song;
+    // Decode so search box shows human-readable title (spaces, punctuation) not URL-encoded
+    const song = decodeURIComponent(item.dataset.song);
     els.search.value = song;
     els.suggestions.innerHTML = '';
     renderChart(song, data);
@@ -71,18 +72,8 @@ function renderChart(song, data) {
         backgroundColor: '#60a5fa',
         tension: 0.15,
         pointRadius: 0,
+        pointHoverRadius: 0,
         borderWidth: 2
-      }, {
-        label: 'Played dates',
-        data: pct.map((v,i)=> rows[i].played ? v : null),
-        showLine: false,
-        borderColor: '#fbbf24',
-        backgroundColor: '#fbbf24',
-        pointRadius: function(ctx){
-          const i = ctx.dataIndex; return rows[i].played ? 4 : 0;
-        },
-        pointHoverRadius: 6,
-        pointStyle: 'circle'
       }]
     },
     options: {

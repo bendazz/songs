@@ -62,7 +62,7 @@ python3 -m http.server 8000                         # then visit http://localhos
 ```
 
 Notes:
-- The chart shows a blue line for % of dates the song had been played prior to each date. Yellow dots indicate dates the song was actually played.
+- The chart shows a blue line for % of dates the song had been played prior to each date (no point markers; hover for values).
 - Search is fuzzy (powered by Fuse.js). Use arrow keys + Enter to select a suggestion.
 
 ## Next ideas
