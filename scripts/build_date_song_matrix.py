@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""
+Build a long-form date x song play matrix.
+
+For each unique play date in the all-plays file, emit one row per catalog song
+that was released on or before that date, with a played flag (1 if played that date, else 0).
+
+Inputs:
+- data/springsteen_songs_simple_unique.csv (song_title, album_release_date_iso)
+- data/springsteen_songs_all_plays.csv or ..._with_years.csv (song_title, play_date_iso)
+
+Output:
+- data/springsteen_date_song_play_matrix.csv
+    Columns: play_date_iso, song_title, album_release_date_iso, played, years_since_release, catalog_size_at_release
+
+Assumption:
+- A song is considered "eligible" on a date if its release date is on or before that date.
+  If you prefer strictly before, change the comparison in eligible filtering.
+"""
+import csv
+from datetime import date
+from typing import Dict, List, Set, Tuple, Optional
+
+INPUT_SONGS = "data/springsteen_songs_simple_unique.csv"
+INPUT_PLAYS = "data/springsteen_songs_all_plays.csv"  # fallback if _with_years not present
+INPUT_PLAYS_WITH_YEARS = "data/springsteen_songs_all_plays_with_years.csv"
+OUTPUT_PATH = "data/springsteen_date_song_play_matrix.csv"
+
+
+def parse_iso(d: str) -> Optional[date]:
+    if not d:
+        return None
+    try:
+        return date.fromisoformat(d)
+    except Exception:
+        return None
+
+
+def load_songs(path: str) -> List[Tuple[str, date, str]]:
+    out: List[Tuple[str, date, str]] = []
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            title = row.get("song_title") or ""
+            iso = row.get("album_release_date_iso") or ""
+            dt = parse_iso(iso)
+            if not title or not dt:
+                # Skip songs without a valid release date
+                continue
+            out.append((title, dt, iso))
+    return out
+
+
+def load_plays(path: str) -> List[Tuple[str, date]]:
+    out: List[Tuple[str, date]] = []
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            title = row.get("song_title") or ""
+            p_iso = row.get("play_date_iso") or ""
+            p_dt = parse_iso(p_iso)
+            if not title or not p_dt:
+                continue
+            out.append((title, p_dt))
+    return out
+
+
+def years_between(release_iso: str, play_iso: str) -> str:
+    r = parse_iso(release_iso)
+    p = parse_iso(play_iso)
+    if not r or not p:
+        return ""
+    days = (p - r).days
+    years = days / 365.2425
+    return f"{years:.2f}"
+
+
+def main():
+    # pick plays input
+    import os
+    plays_path = INPUT_PLAYS_WITH_YEARS if os.path.exists(INPUT_PLAYS_WITH_YEARS) else INPUT_PLAYS
+
+    songs = load_songs(INPUT_SONGS)
+    plays = load_plays(plays_path)
+
+    # Unique dates and songs-played-per-date
+    unique_dates: List[date] = sorted({p_dt for _, p_dt in plays})
+    played_on_date: Dict[date, Set[str]] = {}
+    for title, p_dt in plays:
+        played_on_date.setdefault(p_dt, set()).add(title)
+
+    # Precompute catalog size at each release date and per song
+    from collections import Counter
+    date_counts: Dict[date, int] = {}
+    for _, rel_dt, _ in songs:
+        date_counts[rel_dt] = date_counts.get(rel_dt, 0) + 1
+    cumulative_by_date: Dict[date, int] = {}
+    running = 0
+    for d_key in sorted(date_counts.keys()):
+        running += date_counts[d_key]
+        cumulative_by_date[d_key] = running
+    catalog_size_by_song: Dict[str, int] = {}
+    for title, rel_dt, _ in songs:
+        catalog_size_by_song[title] = cumulative_by_date[rel_dt]
+
+    # Build rows
+    rows: List[Dict[str, str]] = []
+    # For speed, pre-sort songs by release date
+    songs_sorted = sorted(songs, key=lambda x: x[1])
+    for d in unique_dates:
+        played_titles = played_on_date.get(d, set())
+        # Eligible songs: released on or before date 'd'
+        for title, rel_dt, rel_iso in songs_sorted:
+            if rel_dt <= d:
+                played_flag = "1" if title in played_titles else "0"
+                play_iso = d.isoformat()
+                rows.append({
+                    "play_date_iso": play_iso,
+                    "song_title": title,
+                    "album_release_date_iso": rel_iso,
+                    "played": played_flag,
+                    "years_since_release": years_between(rel_iso, play_iso),
+                    "catalog_size_at_release": str(catalog_size_by_song.get(title, "")),
+                })
+
+    # Write output
+    with open(OUTPUT_PATH, "w", newline="", encoding="utf-8") as f:
+        fieldnames = [
+            "play_date_iso",
+            "song_title",
+            "album_release_date_iso",
+            "played",
+            "years_since_release",
+            "catalog_size_at_release",
+        ]
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        w.writerows(rows)
+
+    print(f"Unique play dates: {len(unique_dates)}")
+    print(f"Catalog songs with release dates: {len(songs)}")
+    print(f"Wrote {len(rows)} rows to {OUTPUT_PATH}")
+
+
+if __name__ == "__main__":
+    main()
